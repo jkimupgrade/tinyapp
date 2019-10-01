@@ -12,11 +12,11 @@
     </div>
     <div class="text-right">
       <form method="POST" action="/login">
-        <% if (!username || username === 'undefined') { %>
+        <% if (!user || user === 'undefined') { %>
           <input name="username" placeholder="username">
           <button type="submit" class="btn btn-outline-dark">Login</button>
         <% } else { %>
-          Logged in as: <%= username %>
+          Logged in as: <%= user.email %>
           <form method="POST" action="/logout"><button type="submit" class="btn btn-outline-dark">Log Out</button></form>
         <% } %>
       </form>
