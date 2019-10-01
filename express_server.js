@@ -48,7 +48,7 @@ app.post("/urls", (req, res) => {
   console.log(req.body); // Log the POST request body to the console
   urlDatabase[generateRandomString()] = req.body.longURL; // update urlDatabase with newly generated short URL, along with longURL
   let keys = Object.keys(urlDatabase);
-  res.redirect(`/urls/${keys[keys.length - 1]}`);        // 
+  res.redirect(`/urls/${keys[keys.length - 1]}`);
 });
 
 app.get("/u/:shortURL", (req, res) => {
