@@ -11,6 +11,8 @@ const urlDatabase = {
   "b2xVn2": "http://www.lighthouselabs.ca",
   "9sm5xK": "http://www.google.com"
 };
+const users = {};
+
 const generateRandomString = function() {
   return Math.random().toString(36).substr(2, 6);
 };
@@ -79,13 +81,29 @@ app.post("/urls/:id", (req, res) => {
   res.redirect('/urls');
 });
 
-app.post("/login", (req, res) => {
+app.post('/login', (req, res) => {
   res.cookie("username", req.body.username);
   console.log(req.body.username);
-  res.redirect("/urls");
+  res.redirect('/urls');
 });
 
 app.post("/logout", (req, res) => {
   res.clearCookie("username");
   res.redirect("/urls");
-})
+});
+
+app.get('/register', (req, res) => {
+  res.render('urls_register');
+});
+
+app.post('/register', (req, res) => {
+  const userID = generateRandomString();
+  users[userID] = {
+    id: userID,
+    email: req.body.email,
+    password: req.body.password
+  };
+  console.log(users);
+  res.cookie('user_id', userID);
+  res.redirect('/urls');
+});
