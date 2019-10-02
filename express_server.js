@@ -2,32 +2,41 @@ const express = require('express');
 const app = express();
 const PORT = 8080; // default port 8080
 const bodyParser = require('body-parser');
+const bcrypt = require('bcrypt');
 app.use(bodyParser.urlencoded({extended: true}));
 const cookieParser = require('cookie-parser');
 app.use(cookieParser());
+
+
 app.set('view engine', 'ejs'); // templating engine
 
 const urlDatabase = {
   'b2xVn2': { longURL:'http://www.lighthouselabs.ca', userID: 'test01' },
   '9sm5xK': { longURL: 'http://www.google.com', userID: 'test01'}
 };
+
 // initialize users object
+const test1 = bcrypt.hashSync('test1', 10);
+const test2 = bcrypt.hashSync('test2', 10);
+
 const users = {
   'test01': {
     id: 'test01',
     email: 'test1@test1',
-    password: 'test1'
+    password: test1
   },
   'test02': {
     id: 'test02',
     email: 'test2@test2',
-    password: 'test2'
+    password: test2
   }
 }; 
+
 // generate 6-digit random alphanumeric string
 const generateRandomString = function() { 
   return Math.random().toString(36).substr(2, 6);
 };
+
 // check if email exists in users database
 const checkEmail = function(email) {
   for (user in users) {
@@ -37,6 +46,7 @@ const checkEmail = function(email) {
   };
   return false; 
 };
+
 // retrieve userID from email
 const getUserID = function(email) {
   for (user in users) {
@@ -46,15 +56,17 @@ const getUserID = function(email) {
   };
   return null; // no matching user
 };
+
 // check if password exists in users database
-const checkPassword = function(password) {
-  for (user in users) {
-    if (users[user].password === password) {
+const checkPassword = function(inputPassword) {
+  for (key in users) {
+    if(bcrypt.compareSync(inputPassword, users[key].password)) {
       return true;
     }
   };
   return false;
 };
+
 // retrieve URLs where the userID is equal to the id of the currently logged in user
 const getUrls = function(lookUpId) {
   let filteredUrls = {};
@@ -68,9 +80,8 @@ const getUrls = function(lookUpId) {
   }
   return filteredUrls;
 };
-//////////////////////////////////////////////
+
 /////////////////// GET //////////////////////
-//////////////////////////////////////////////
 app.get('/', (req, res) => {
   res.send('Hello!');
 });
@@ -170,6 +181,7 @@ app.get('/logout', (req, res) => {
   res.redirect('/login');
 });
 
+// load registration page
 app.get('/register', (req, res) => {
   if (!users[req.cookies['user_id']]) { // not logged in
     templateVars = {
@@ -181,9 +193,7 @@ app.get('/register', (req, res) => {
   }
 });
 
-//////////////////////////////////////////////
 /////////////////// POST /////////////////////
-//////////////////////////////////////////////
 // add new URLs to database
 app.post('/urls', (req, res) => {
   console.log('NewURL being added', req.body.longURL); // Log the POST request body to the console
@@ -226,10 +236,12 @@ app.post('/urls/:id', (req, res) => {
   }
 });
 
+// check login credentials
 app.post('/login', (req, res) => {
   // if email cannot be found, return 403
-  console.log(checkEmail(req.body.email));
-  console.log(checkPassword(req.body.password));
+  // console.log('email check', checkEmail(req.body.email));
+  // console.log('PASSWORD', req.body.password);
+  // console.log('PASSWORD CHECK', checkPassword(req.body.password));
   
   if (!checkEmail(req.body.email)) {
     res.status(403).send('Invalid email');
@@ -257,7 +269,7 @@ app.post('/register', (req, res) => {
     users[userID] = {
       id: userID,
       email: req.body.email,
-      password: req.body.password
+      password: bcrypt.hashSync(req.body.password, 10) // hash password before storage
     };
   };
   console.log(users); // view users object after
