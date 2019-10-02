@@ -122,7 +122,7 @@ app.get('/urls/:shortURL', (req, res) => {
     };
     res.render('login_alert', templateVars);
 
-  } else if (!getUrls(req.cookies['user_id'])) { // if the :id does not belong to them, then alert
+  } else if (!getUrls(req.cookies['user_id'])) { // if the urls does not belong to :id, then alert
     let templateVars = {
       user: null,
       longURL: null,
@@ -141,7 +141,7 @@ app.get('/urls/:shortURL', (req, res) => {
 
 // load page corresponding to the shortURL that the user inputs
 app.get('/u/:shortURL', (req, res) => {
-  const longURL = urlDatabase[req.params.shortURL];
+  const longURL = urlDatabase[req.params.shortURL].longURL;
   res.redirect(longURL);
 });
 
@@ -197,33 +197,33 @@ app.post('/urls', (req, res) => {
 
 // delete entry on My URLs page (button)
 app.post('/urls/:shortURL/delete', (req, res) => {
-  delete urlDatabase[req.params.shortURL];
-  console.log(`ShortURL ${req.params.shortURL} has been deleted`);
-  res.redirect('/urls');
+  // if not logged in, then alert
+  if (!req.cookies['user_id']) {
+    console.log('DELETE DENIED');
+    res.redirect('/urls');
+  } else {
+    console.log('DELETE SUCCESS');
+    delete urlDatabase[req.params.shortURL];
+    console.log(`ShortURL ${req.params.shortURL} has been deleted`);
+    res.redirect('/urls');
+  }
 });
 
 // receive newURL from user for specific shortURL (:id)
 app.post('/urls/:id', (req, res) => {
   // if not logged in, then alert
   if (!req.cookies['user_id']) {
+    console.log('EDIT DENIED')
     let templateVars = {
       user: null
     };
     res.render('login_alert', templateVars);
 
-  } else if (!getUrls(req.cookies['user_id'])) { // if the :id does not belong to them, then alert
-    let templateVars = {
-      user: null
-    };
-    res.render('urls_show_alert', templateVars);
-
   } else {
-    console.log(req.body); 
+    console.log('EDIT SUCCESS'); 
     urlDatabase[req.params.id] = req.body.newURL; // update database with newURL
     res.redirect('/urls');
   }
-  // } else if (getUrls(req.params.id))
-  // if logged in, then update database and redirect to /urls
 });
 
 app.post('/login', (req, res) => {
