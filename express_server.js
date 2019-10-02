@@ -63,37 +63,35 @@ const getUrls = function(lookUpId) {
       filteredUrls[key] = urlDatabase[key].longURL;
     }
   };
+  if (Object.keys(filteredUrls).length === 0) {
+    return false;
+  }
   return filteredUrls;
 };
 //////////////////////////////////////////////
-//////////////////////////////////////////////
+/////////////////// GET //////////////////////
 //////////////////////////////////////////////
 app.get('/', (req, res) => {
   res.send('Hello!');
 });
-
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}!`);
 });
-
 app.get('/urls.json', (req, res) => {
   res.json(urlDatabase);
 });
-
 app.get('/hello', (req, res) => {
   res.send('<html><body>Hello <b>World</b></body></html?\n');
 });
 
-
+// load 'My URLs' page
 app.get('/urls', (req, res) => {
   // 1. check if user is logged in 2. only display urls relevant to the user
   if (!users[req.cookies['user_id']]) { // not logged in (i.e. cookie empty)
     let templateVars = {
-      user: null,
-      urls: null,
-      loggedIn: false
+      user: null
     };
-    res.render('urls_index_alert', templateVars); // CORRECT LATER if user does not exist redirect to login page (for now)
+    res.render('login_alert', templateVars);
   } else {
     let templateVars = { 
       urls: getUrls(req.cookies['user_id']),
@@ -103,9 +101,9 @@ app.get('/urls', (req, res) => {
     }
 });
 
-
+// load 'Create New URL' page
 app.get('/urls/new', (req, res) => { // GET route to show the form
-  console.log('user_id cookie does not exist?', !users[req.cookies['user_id']]);
+  console.log('user NOT logged in?', !users[req.cookies['user_id']]);
   if (!users[req.cookies['user_id']]) { // not logged in
     res.redirect('/login'); // redirect to login page if not logged in
   } else { // logged in
@@ -116,39 +114,38 @@ app.get('/urls/new', (req, res) => { // GET route to show the form
   }
 });
 
+// load page showing results of newly added longURL and the corresponding shortURL (with the option to edit)
 app.get('/urls/:shortURL', (req, res) => {
-  let templateVars = { 
-    shortURL: req.params.shortURL, 
-    longURL: urlDatabase[req.params.shortURL],
-    user: users[req.cookies['user_id']]
-  };
-  res.render('urls_show', templateVars);
+  if (!req.cookies['user_id']) { // if not logged in, then alert
+    let templateVars = {
+      user: null
+    };
+    res.render('login_alert', templateVars);
+
+  } else if (!getUrls(req.cookies['user_id'])) { // if the :id does not belong to them, then alert
+    let templateVars = {
+      user: null,
+      longURL: null,
+      shortURL: null
+    };
+    res.render('urls_show_alert', templateVars);
+  } else {
+    let templateVars = { 
+      shortURL: req.params.shortURL, 
+      longURL: urlDatabase[req.params.shortURL].longURL,
+      user: users[req.cookies['user_id']]
+    };
+    res.render('urls_show', templateVars);
+  }  
 });
 
-app.post('/urls', (req, res) => {
-  console.log(req.body); // Log the POST request body to the console
-  urlDatabase[generateRandomString()] = req.body.longURL; // update urlDatabase with newly generated short URL, along with longURL
-  let keys = Object.keys(urlDatabase);
-  res.redirect(`/urls/${keys[keys.length - 1]}`);
-});
-
+// load page corresponding to the shortURL that the user inputs
 app.get('/u/:shortURL', (req, res) => {
   const longURL = urlDatabase[req.params.shortURL];
   res.redirect(longURL);
 });
 
-app.post('/urls/:shortURL/delete', (req, res) => {
-  delete urlDatabase[req.params.shortURL];
-  console.log(`ShortURL ${req.params.shortURL} has been deleted`);
-  res.redirect('/urls');
-});
-
-app.post('/urls/:id', (req, res) => {
-  console.log(req.body); // receive newURL from user for specific shortURL (:id)
-  urlDatabase[req.params.id] = req.body.newURL; // update database with newURL
-  res.redirect('/urls');
-});
-
+// load login page
 app.get('/login', (req, res) => {
   // only show login page if they're not logged in
   // if they're logged in --> redirect to /urls page
@@ -160,6 +157,73 @@ app.get('/login', (req, res) => {
   } else { // logged in
     res.redirect('/urls');
   }
+});
+
+// // load login_alert page
+// app.get('/login_alert', (req, res) => {
+//   res.render('login_alert');
+// })
+
+// loading the logout page will clear cookies and redirect to 'My URLs' page
+app.get('/logout', (req, res) => {
+  res.clearCookie('user_id');
+  res.redirect('/login');
+});
+
+app.get('/register', (req, res) => {
+  if (!users[req.cookies['user_id']]) { // not logged in
+    templateVars = {
+      user: null
+    };
+    res.render('register', templateVars);
+  } else { // logged in
+    res.redirect('/urls');
+  }
+});
+
+//////////////////////////////////////////////
+/////////////////// POST /////////////////////
+//////////////////////////////////////////////
+// add new URLs to database
+app.post('/urls', (req, res) => {
+  console.log('NewURL being added', req.body.longURL); // Log the POST request body to the console
+  urlDatabase[generateRandomString()] = { // update urlDatabase with newly generated short URL, along with longURL and userID
+    longURL: req.body.longURL,
+    userID: req.cookies['user_id']
+  };
+  let keys = Object.keys(urlDatabase);
+  res.redirect(`/urls/${keys[keys.length - 1]}`);
+});
+
+// delete entry on My URLs page (button)
+app.post('/urls/:shortURL/delete', (req, res) => {
+  delete urlDatabase[req.params.shortURL];
+  console.log(`ShortURL ${req.params.shortURL} has been deleted`);
+  res.redirect('/urls');
+});
+
+// receive newURL from user for specific shortURL (:id)
+app.post('/urls/:id', (req, res) => {
+  // if not logged in, then alert
+  if (!req.cookies['user_id']) {
+    let templateVars = {
+      user: null
+    };
+    res.render('login_alert', templateVars);
+
+  } else if (!getUrls(req.cookies['user_id'])) { // if the :id does not belong to them, then alert
+    let templateVars = {
+      user: null
+    };
+    res.render('urls_show_alert', templateVars);
+
+  } else {
+    console.log(req.body); 
+    urlDatabase[req.params.id] = req.body.newURL; // update database with newURL
+    res.redirect('/urls');
+  }
+  // } else if (getUrls(req.params.id))
+  // if logged in, then update database and redirect to /urls
 });
 
 app.post('/login', (req, res) => {
@@ -177,22 +241,6 @@ app.post('/login', (req, res) => {
     }
   }
   res.redirect('/urls');
-});
-
-app.get('/logout', (req, res) => {
-  res.clearCookie('user_id');
-  res.redirect('/urls');
-});
-
-app.get('/register', (req, res) => {
-  if (!users[req.cookies['user_id']]) { // not logged in
-    templateVars = {
-      user: null
-    };
-    res.render('register', templateVars);
-  } else { // logged in
-    res.redirect('/urls');
-  }
 });
 
 app.post('/register', (req, res) => {
