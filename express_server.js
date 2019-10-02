@@ -4,8 +4,13 @@ const PORT = 8080; // default port 8080
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 app.use(bodyParser.urlencoded({extended: true}));
-const cookieParser = require('cookie-parser');
-app.use(cookieParser());
+// const cookieParser = require('cookie-parser');
+// app.use(cookieParser());
+const cookieSession = require('cookie-session');
+app.use(cookieSession({
+  name: 'session',
+  keys: ['key1', 'key2']
+}));
 
 
 app.set('view engine', 'ejs'); // templating engine
@@ -48,10 +53,10 @@ const checkEmail = function(email) {
 };
 
 // retrieve userID from email
-const getUserID = function(email) {
-  for (user in users) {
-    if (users[user].email === email) {
-      return users[user].id;
+const getUserID = function(inputEmail) {
+  for (key in users) {
+    if (users[key].email === inputEmail) {
+      return users[key].id;
     }
   };
   return null; // no matching user
@@ -98,15 +103,15 @@ app.get('/hello', (req, res) => {
 // load 'My URLs' page
 app.get('/urls', (req, res) => {
   // 1. check if user is logged in 2. only display urls relevant to the user
-  if (!users[req.cookies['user_id']]) { // not logged in (i.e. cookie empty)
+  if (!users[req.session.user_id]) { // not logged in (i.e. cookie empty)
     let templateVars = {
       user: null
     };
     res.render('login_alert', templateVars);
   } else {
     let templateVars = { 
-      urls: getUrls(req.cookies['user_id']),
-      user: users[req.cookies['user_id']]
+      urls: getUrls(req.session.user_id),
+      user: users[req.session.user_id]
      };
      res.render('urls_index', templateVars);
     }
@@ -114,12 +119,12 @@ app.get('/urls', (req, res) => {
 
 // load 'Create New URL' page
 app.get('/urls/new', (req, res) => { // GET route to show the form
-  console.log('user NOT logged in?', !users[req.cookies['user_id']]);
-  if (!users[req.cookies['user_id']]) { // not logged in
+  console.log('user NOT logged in?', !users[req.session.user_id]);
+  if (!users[req.session.user_id]) { // not logged in
     res.redirect('/login'); // redirect to login page if not logged in
   } else { // logged in
     templateVars = {
-      user: users[req.cookies['user_id']]
+      user: users[req.session.user_id]
     };
     res.render('urls_new', templateVars);
   }
@@ -127,13 +132,13 @@ app.get('/urls/new', (req, res) => { // GET route to show the form
 
 // load page showing results of newly added longURL and the corresponding shortURL (with the option to edit)
 app.get('/urls/:shortURL', (req, res) => {
-  if (!req.cookies['user_id']) { // if not logged in, then alert
+  if (!req.session.user_id) { // if not logged in, then alert
     let templateVars = {
       user: null
     };
     res.render('login_alert', templateVars);
 
-  } else if (!getUrls(req.cookies['user_id'])) { // if the urls does not belong to :id, then alert
+  } else if (!getUrls(req.session.user_id)) { // if the urls does not belong to :id, then alert
     let templateVars = {
       user: null,
       longURL: null,
@@ -144,7 +149,7 @@ app.get('/urls/:shortURL', (req, res) => {
     let templateVars = { 
       shortURL: req.params.shortURL, 
       longURL: urlDatabase[req.params.shortURL].longURL,
-      user: users[req.cookies['user_id']]
+      user: users[req.session.user_id]
     };
     res.render('urls_show', templateVars);
   }  
@@ -160,7 +165,7 @@ app.get('/u/:shortURL', (req, res) => {
 app.get('/login', (req, res) => {
   // only show login page if they're not logged in
   // if they're logged in --> redirect to /urls page
-  if (!users[req.cookies['user_id']]) { // not logged in
+  if (!users[req.session.user_id]) { // not logged in
     templateVars = {
       user: null   
     };
@@ -175,15 +180,9 @@ app.get('/login', (req, res) => {
 //   res.render('login_alert');
 // })
 
-// loading the logout page will clear cookies and redirect to 'My URLs' page
-app.get('/logout', (req, res) => {
-  res.clearCookie('user_id');
-  res.redirect('/login');
-});
-
 // load registration page
 app.get('/register', (req, res) => {
-  if (!users[req.cookies['user_id']]) { // not logged in
+  if (!users[req.session.user_id]) { // not logged in
     templateVars = {
       user: null
     };
@@ -193,13 +192,20 @@ app.get('/register', (req, res) => {
   }
 });
 
+// loading the logout page will clear cookies and redirect to 'My URLs' page
+app.get('/logout', (req, res) => {
+  res.clearCookie('user_id');
+  res.redirect('/login');
+});
+
+
 /////////////////// POST /////////////////////
 // add new URLs to database
 app.post('/urls', (req, res) => {
   console.log('NewURL being added', req.body.longURL); // Log the POST request body to the console
   urlDatabase[generateRandomString()] = { // update urlDatabase with newly generated short URL, along with longURL and userID
     longURL: req.body.longURL,
-    userID: req.cookies['user_id']
+    userID: req.session.user_id
   };
   let keys = Object.keys(urlDatabase);
   res.redirect(`/urls/${keys[keys.length - 1]}`);
@@ -208,7 +214,7 @@ app.post('/urls', (req, res) => {
 // delete entry on My URLs page (button)
 app.post('/urls/:shortURL/delete', (req, res) => {
   // if not logged in, then alert
-  if (!req.cookies['user_id']) {
+  if (!req.session.user_id) {
     console.log('DELETE DENIED');
     res.redirect('/urls');
   } else {
@@ -222,7 +228,7 @@ app.post('/urls/:shortURL/delete', (req, res) => {
 // receive newURL from user for specific shortURL (:id)
 app.post('/urls/:id', (req, res) => {
   // if not logged in, then alert
-  if (!req.cookies['user_id']) {
+  if (!req.session.user_id) {
     console.log('EDIT DENIED')
     let templateVars = {
       user: null
@@ -238,24 +244,23 @@ app.post('/urls/:id', (req, res) => {
 
 // check login credentials
 app.post('/login', (req, res) => {
-  // if email cannot be found, return 403
-  // console.log('email check', checkEmail(req.body.email));
-  // console.log('PASSWORD', req.body.password);
-  // console.log('PASSWORD CHECK', checkPassword(req.body.password));
-  
-  if (!checkEmail(req.body.email)) {
+  if (!checkEmail(req.body.email)) { // if email cannot be found, return 403
     res.status(403).send('Invalid email');
-  } else {
+
+  } else { // if password is invalid, return 403
     if (!checkPassword(req.body.password)) {
       res.status(403).send('Invalid password');
+
     } else {
-      res.cookie('user_id', getUserID(req.body.email));
+      req.session.user_id = getUserID(req.body.email);
+
     }
   }
   res.redirect('/urls');
 });
 
-app.post('/register', (req, res) => {
+app.post('/register', (req, res
+  ) => {
   const userID = generateRandomString();
 
   if (!req.body.email || !req.body.password) { // check if email or password is empty
