@@ -8,22 +8,27 @@ app.use(cookieParser());
 app.set('view engine', 'ejs'); // templating engine
 
 const urlDatabase = {
-  'b2xVn2': 'http://www.lighthouselabs.ca',
-  '9sm5xK': 'http://www.google.com'
+  'b2xVn2': { longURL:'http://www.lighthouselabs.ca', userID: 'test01' },
+  '9sm5xK': { longURL: 'http://www.google.com', userID: 'test01'}
 };
-
+// initialize users object
 const users = {
   'test01': {
     id: 'test01',
-    email: 'test@test',
-    password: 'test'
+    email: 'test1@test1',
+    password: 'test1'
+  },
+  'test02': {
+    id: 'test02',
+    email: 'test2@test2',
+    password: 'test2'
   }
-}; // initialize empty users object
-
-const generateRandomString = function() { // generate 6-digit random alphanumeric string
+}; 
+// generate 6-digit random alphanumeric string
+const generateRandomString = function() { 
   return Math.random().toString(36).substr(2, 6);
 };
-
+// check if email exists in users database
 const checkEmail = function(email) {
   for (user in users) {
     if (users[user].email === email) {
@@ -32,8 +37,8 @@ const checkEmail = function(email) {
   };
   return false; 
 };
-
-const getUserID = function(email) { // retrieve userID from email
+// retrieve userID from email
+const getUserID = function(email) {
   for (user in users) {
     if (users[user].email === email) {
       return users[user].id;
@@ -41,7 +46,7 @@ const getUserID = function(email) { // retrieve userID from email
   };
   return null; // no matching user
 };
-
+// check if password exists in users database
 const checkPassword = function(password) {
   for (user in users) {
     if (users[user].password === password) {
@@ -49,6 +54,16 @@ const checkPassword = function(password) {
     }
   };
   return false;
+};
+// retrieve URLs where the userID is equal to the id of the currently logged in user
+const getUrls = function(lookUpId) {
+  let filteredUrls = {};
+  for (key of Object.keys(urlDatabase)) { // key=shortURL
+    if (urlDatabase[key].userID === lookUpId) {
+      filteredUrls[key] = urlDatabase[key].longURL;
+    }
+  };
+  return filteredUrls;
 };
 //////////////////////////////////////////////
 //////////////////////////////////////////////
@@ -69,18 +84,28 @@ app.get('/hello', (req, res) => {
   res.send('<html><body>Hello <b>World</b></body></html?\n');
 });
 
+
 app.get('/urls', (req, res) => {
-  let templateVars = { 
-    urls: urlDatabase,
-    user: users[req.cookies['user_id']]
-   };
-  // console.log(templateVars);
-  res.render('urls_index', templateVars);
+  // 1. check if user is logged in 2. only display urls relevant to the user
+  if (!users[req.cookies['user_id']]) { // not logged in (i.e. cookie empty)
+    let templateVars = {
+      user: null,
+      urls: null,
+      loggedIn: false
+    };
+    res.render('urls_index_alert', templateVars); // CORRECT LATER if user does not exist redirect to login page (for now)
+  } else {
+    let templateVars = { 
+      urls: getUrls(req.cookies['user_id']),
+      user: users[req.cookies['user_id']]
+     };
+     res.render('urls_index', templateVars);
+    }
 });
 
 
 app.get('/urls/new', (req, res) => { // GET route to show the form
-  console.log(!users[req.cookies['user_id']]);
+  console.log('user_id cookie does not exist?', !users[req.cookies['user_id']]);
   if (!users[req.cookies['user_id']]) { // not logged in
     res.redirect('/login'); // redirect to login page if not logged in
   } else { // logged in
@@ -90,7 +115,6 @@ app.get('/urls/new', (req, res) => { // GET route to show the form
     res.render('urls_new', templateVars);
   }
 });
-
 
 app.get('/urls/:shortURL', (req, res) => {
   let templateVars = { 
