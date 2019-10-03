@@ -12,8 +12,11 @@ app.use(cookieSession({
   keys: ['key1', 'key2']
 }));
 
-
 app.set('view engine', 'ejs'); // templating engine
+
+// helper functions
+const { getUserByEmail } = require('./helpers');
+const { generateRandomString } = require('./helpers');
 
 const urlDatabase = {
   'b2xVn2': { longURL:'http://www.lighthouselabs.ca', userID: 'test01' },
@@ -37,10 +40,6 @@ const users = {
   }
 }; 
 
-// generate 6-digit random alphanumeric string
-const generateRandomString = function() { 
-  return Math.random().toString(36).substr(2, 6);
-};
 
 // check if email exists in users database
 const checkEmail = function(email) {
@@ -50,16 +49,6 @@ const checkEmail = function(email) {
     }
   };
   return false; 
-};
-
-// retrieve userID from email
-const getUserID = function(inputEmail) {
-  for (key in users) {
-    if (users[key].email === inputEmail) {
-      return users[key].id;
-    }
-  };
-  return null; // no matching user
 };
 
 // check if password exists in users database
@@ -103,7 +92,7 @@ app.get('/hello', (req, res) => {
 // load 'My URLs' page
 app.get('/urls', (req, res) => {
   // 1. check if user is logged in 2. only display urls relevant to the user
-  if (!users[req.session.user_id]) { // not logged in (i.e. cookie empty)
+  if (!req.session.user_id) { // not logged in (i.e. cookie empty)
     let templateVars = {
       user: null
     };
@@ -119,9 +108,10 @@ app.get('/urls', (req, res) => {
 
 // load 'Create New URL' page
 app.get('/urls/new', (req, res) => { // GET route to show the form
-  console.log('user NOT logged in?', !users[req.session.user_id]);
-  if (!users[req.session.user_id]) { // not logged in
-    res.redirect('/login'); // redirect to login page if not logged in
+  console.log('user NOT logged in?', !req.session.user_id);
+  if (!req.session.user_id) { // not logged in
+    res.redirect('login_alert'); // redirect to login_alert page if not logged in
+
   } else { // logged in
     templateVars = {
       user: users[req.session.user_id]
@@ -165,7 +155,7 @@ app.get('/u/:shortURL', (req, res) => {
 app.get('/login', (req, res) => {
   // only show login page if they're not logged in
   // if they're logged in --> redirect to /urls page
-  if (!users[req.session.user_id]) { // not logged in
+  if (!req.session.user_id) { // not logged in
     templateVars = {
       user: null   
     };
@@ -175,14 +165,14 @@ app.get('/login', (req, res) => {
   }
 });
 
-// // load login_alert page
-// app.get('/login_alert', (req, res) => {
-//   res.render('login_alert');
-// })
+// load login_alert page
+app.get('/login_alert', (req, res) => {
+  res.render('login_alert');
+});
 
 // load registration page
 app.get('/register', (req, res) => {
-  if (!users[req.session.user_id]) { // not logged in
+  if (!req.session.user_id) { // not logged in
     templateVars = {
       user: null
     };
@@ -194,7 +184,7 @@ app.get('/register', (req, res) => {
 
 // loading the logout page will clear cookies and redirect to 'My URLs' page
 app.get('/logout', (req, res) => {
-  res.clearCookie('user_id');
+  req.session = null; // destroy session
   res.redirect('/login');
 });
 
@@ -252,7 +242,7 @@ app.post('/login', (req, res) => {
       res.status(403).send('Invalid password');
 
     } else {
-      req.session.user_id = getUserID(req.body.email);
+      req.session.user_id = getUserByEmail(req.body.email, users);
 
     }
   }
