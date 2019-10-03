@@ -2,7 +2,6 @@ const express = require('express');
 const app = express();
 const PORT = 8080; // default port 8080
 const bodyParser = require('body-parser');
-const bcrypt = require('bcrypt');
 app.use(bodyParser.urlencoded({extended: true}));
 // const cookieParser = require('cookie-parser');
 // app.use(cookieParser());
@@ -14,66 +13,17 @@ app.use(cookieSession({
 
 app.set('view engine', 'ejs'); // templating engine
 
-// helper functions
+// import data
+const { urlDatabase } = require('./data/db');
+const { users } = require('./data/db');
+
+// import helper functions
 const { getUserByEmail } = require('./helpers');
 const { generateRandomString } = require('./helpers');
+const { checkEmail } = require('./helpers');
+const { checkPassword } = require('./helpers');
+const { getUrls } = require('./helpers');
 
-const urlDatabase = {
-  'b2xVn2': { longURL:'http://www.lighthouselabs.ca', userID: 'test01' },
-  '9sm5xK': { longURL: 'http://www.google.com', userID: 'test01'}
-};
-
-// initialize users object
-const test1 = bcrypt.hashSync('test1', 10);
-const test2 = bcrypt.hashSync('test2', 10);
-
-const users = {
-  'test01': {
-    id: 'test01',
-    email: 'test1@test1',
-    password: test1
-  },
-  'test02': {
-    id: 'test02',
-    email: 'test2@test2',
-    password: test2
-  }
-}; 
-
-
-// check if email exists in users database
-const checkEmail = function(email) {
-  for (user in users) {
-    if (users[user].email === email) {
-      return true;
-    }
-  };
-  return false; 
-};
-
-// check if password exists in users database
-const checkPassword = function(inputPassword) {
-  for (key in users) {
-    if(bcrypt.compareSync(inputPassword, users[key].password)) {
-      return true;
-    }
-  };
-  return false;
-};
-
-// retrieve URLs where the userID is equal to the id of the currently logged in user
-const getUrls = function(lookUpId) {
-  let filteredUrls = {};
-  for (key of Object.keys(urlDatabase)) { // key=shortURL
-    if (urlDatabase[key].userID === lookUpId) {
-      filteredUrls[key] = urlDatabase[key].longURL;
-    }
-  };
-  if (Object.keys(filteredUrls).length === 0) {
-    return false;
-  }
-  return filteredUrls;
-};
 
 /////////////////// GET //////////////////////
 app.get('/', (req, res) => {
@@ -249,6 +199,7 @@ app.post('/login', (req, res) => {
   res.redirect('/urls');
 });
 
+// register a user
 app.post('/register', (req, res
   ) => {
   const userID = generateRandomString();
