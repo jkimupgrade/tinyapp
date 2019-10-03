@@ -24,7 +24,6 @@ const { checkEmail } = require('./helpers');
 const { checkPassword } = require('./helpers');
 const { getUrls } = require('./helpers');
 
-
 /////////////////// GET //////////////////////
 app.get('/', (req, res) => {
   res.send('Hello!');
@@ -44,12 +43,14 @@ app.get('/urls', (req, res) => {
   // 1. check if user is logged in 2. only display urls relevant to the user
   if (!req.session.user_id) { // not logged in (i.e. cookie empty)
     let templateVars = {
-      user: null
+      user: null,
+      msg: 'Please login to continue',
+      status: false
     };
-    res.render('login_alert', templateVars);
+    res.render('login', templateVars);
   } else {
     let templateVars = { 
-      urls: getUrls(req.session.user_id),
+      urls: getUrls(req.session.user_id, urlDatabase),
       user: users[req.session.user_id]
      };
      res.render('urls_index', templateVars);
@@ -60,7 +61,12 @@ app.get('/urls', (req, res) => {
 app.get('/urls/new', (req, res) => { // GET route to show the form
   console.log('user NOT logged in?', !req.session.user_id);
   if (!req.session.user_id) { // not logged in
-    res.redirect('login_alert'); // redirect to login_alert page if not logged in
+    let templateVars = {
+      user: null,
+      msg: 'Please login to create a shortURL',
+      status: false
+    };
+    res.render('login', templateVars); //
 
   } else { // logged in
     templateVars = {
@@ -74,25 +80,32 @@ app.get('/urls/new', (req, res) => { // GET route to show the form
 app.get('/urls/:shortURL', (req, res) => {
   if (!req.session.user_id) { // if not logged in, then alert
     let templateVars = {
-      user: null
+      user: null,
+      msg: 'Please log in to view the newly added url',
+      status: false
     };
-    res.render('login_alert', templateVars);
+    res.render('login', templateVars);
 
-  } else if (!getUrls(req.session.user_id)) { // if the urls does not belong to :id, then alert
+  } else if (!getUrls(req.session.user_id, urlDatabase)) { // if the urls does not belong to :id, then alert
     let templateVars = {
       user: null,
       longURL: null,
-      shortURL: null
+      shortURL: null,
+      msg: 'This URL does not belong to you. Please log in with a different user',
+      status: false
     };
-    res.render('urls_show_alert', templateVars);
+    res.render('urls_show', templateVars);
+
   } else {
     let templateVars = { 
       shortURL: req.params.shortURL, 
       longURL: urlDatabase[req.params.shortURL].longURL,
-      user: users[req.session.user_id]
+      user: users[req.session.user_id],
+      status: true
     };
     res.render('urls_show', templateVars);
-  }  
+  }
+
 });
 
 // load page corresponding to the shortURL that the user inputs
@@ -107,7 +120,8 @@ app.get('/login', (req, res) => {
   // if they're logged in --> redirect to /urls page
   if (!req.session.user_id) { // not logged in
     templateVars = {
-      user: null   
+      user: null,
+      status: true   
     };
     res.render('login', templateVars);
   } else { // logged in
@@ -116,15 +130,16 @@ app.get('/login', (req, res) => {
 });
 
 // load login_alert page
-app.get('/login_alert', (req, res) => {
-  res.render('login_alert');
-});
+// app.get('/login_alert', (req, res) => {
+//   res.render('login_alert');
+// });
 
 // load registration page
 app.get('/register', (req, res) => {
   if (!req.session.user_id) { // not logged in
     templateVars = {
-      user: null
+      user: null,
+      status: true
     };
     res.render('register', templateVars);
   } else { // logged in
@@ -137,7 +152,6 @@ app.get('/logout', (req, res) => {
   req.session = null; // destroy session
   res.redirect('/login');
 });
-
 
 /////////////////// POST /////////////////////
 // add new URLs to database
@@ -171,9 +185,11 @@ app.post('/urls/:id', (req, res) => {
   if (!req.session.user_id) {
     console.log('EDIT DENIED')
     let templateVars = {
-      user: null
+      user: null,
+      msg: 'Please login to edit',
+      status: false
     };
-    res.render('login_alert', templateVars);
+    res.render('login', templateVars);
 
   } else {
     console.log('EDIT SUCCESS'); 
@@ -184,12 +200,24 @@ app.post('/urls/:id', (req, res) => {
 
 // check login credentials
 app.post('/login', (req, res) => {
-  if (!checkEmail(req.body.email)) { // if email cannot be found, return 403
-    res.status(403).send('Invalid email');
+  if (!checkEmail(req.body.email, users)) { // if email cannot be found, return 403
+    let templateVars = {
+      user: null,
+      msg: 'Invalid email',
+      status: false
+    }
+    res.status(403).render('login', templateVars);
+    // res.status(403).send('Invalid email');
 
   } else { // if password is invalid, return 403
-    if (!checkPassword(req.body.password)) {
-      res.status(403).send('Invalid password');
+    if (!checkPassword(req.body.password, users)) {
+      let templateVars = {
+        user: null,
+        msg: 'Invalid password',
+        status: false
+      }
+      res.status(403).render('login', templateVars);
+      // res.status(403).send('Invalid password');
 
     } else {
       req.session.user_id = getUserByEmail(req.body.email, users);
@@ -200,18 +228,31 @@ app.post('/login', (req, res) => {
 });
 
 // register a user
-app.post('/register', (req, res
-  ) => {
+app.post('/register', (req, res) => {
   const userID = generateRandomString();
 
   if (!req.body.email || !req.body.password) { // check if email or password is empty
-    console.log('EMAIL OR PASSWORD MISSING')
-    res.status(400).send('Email or password missing');
+    console.log('EMAIL OR PASSWORD MISSING');
+    let templateVars = {
+      user: null,
+      msg: 'Email or password is EMPTY',
+      status: false
+    };
+    res.status(400).render('register', templateVars);
+    // res.status(400).send('Email or password missing');
+
   } else if (checkEmail(req.body.email)) { // check if email already exists in users database
-    console.log('DUPLICATE EMAIL')
-    res.status(400).send('Email already exists');
+    console.log('DUPLICATE EMAIL');
+    let templateVars = {
+      user: null,
+      msg: 'Duplicate email',
+      status: false
+    };
+    res.status(400).render('register', templateVars)
+    // res.status(400).send('Email already exists');
+
   } else { // add new user to users database
-    console.log('NEW USER ADDED')
+    console.log('NEW USER ADDED');
     users[userID] = {
       id: userID,
       email: req.body.email,

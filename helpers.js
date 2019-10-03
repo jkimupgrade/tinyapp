@@ -6,19 +6,19 @@ const generateRandomString = function() {
 };
 
 // retrieve userID from email
-const getUserByEmail = function(inputEmail, database) {
-  for (key in database) {
-    if (database[key].email === inputEmail) {
-      return database[key].id;
+const getUserByEmail = function(inputEmail, userData) {
+  for (key in userData) {
+    if (userData[key].email === inputEmail) {
+      return userData[key].id;
     }
   };
   return undefined; // no matching user
 };
 
 // check if email exists in users database
-const checkEmail = function(email) {
-  for (user in users) {
-    if (users[user].email === email) {
+const checkEmail = function(email, userData) {
+  for (key in userData) {
+    if (userData[key].email === email) {
       return true;
     }
   };
@@ -26,9 +26,9 @@ const checkEmail = function(email) {
 };
 
 // check if password exists in users database
-const checkPassword = function(inputPassword) {
-  for (key in users) {
-    if(bcrypt.compareSync(inputPassword, users[key].password)) {
+const checkPassword = function(inputPassword, userData) {
+  for (key in userData) {
+    if(bcrypt.compareSync(inputPassword, userData[key].password)) {
       return true;
     }
   };
@@ -36,11 +36,11 @@ const checkPassword = function(inputPassword) {
 };
 
 // retrieve URLs where the userID is equal to the id of the currently logged in user
-const getUrls = function(lookUpId) {
+const getUrls = function(lookUpId, urlData) {
   let filteredUrls = {};
-  for (key of Object.keys(urlDatabase)) { // key=shortURL
-    if (urlDatabase[key].userID === lookUpId) {
-      filteredUrls[key] = urlDatabase[key].longURL;
+  for (key in urlData) { // key=shortURL
+    if (urlData[key].userID === lookUpId) {
+      filteredUrls[key] = urlData[key].longURL;
     }
   };
   if (Object.keys(filteredUrls).length === 0) {
