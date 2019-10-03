@@ -4,8 +4,8 @@ const PORT = 8080; // default port 8080
 const bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({extended: true}));
 const bcrypt = require('bcrypt');
-// const cookieParser = require('cookie-parser');
-// app.use(cookieParser());
+const cookieParser = require('cookie-parser');
+app.use(cookieParser());
 const cookieSession = require('cookie-session');
 app.use(cookieSession({
   name: 'session',
@@ -63,7 +63,6 @@ app.get('/urls', (req, res) => {
 
 // load 'Create New URL' page
 app.get('/urls/new', (req, res) => { // GET route to show the form
-  console.log('user NOT logged in?', !req.session.userId);
   if (!req.session.userId) { // not logged in
     let templateVars = {
       user: null,
@@ -82,8 +81,6 @@ app.get('/urls/new', (req, res) => { // GET route to show the form
 
 // load page showing results of newly added longURL and the corresponding shortURL (with the option to edit)
 app.get('/urls/:shortURL', (req, res) => {
-  console.log('userId', req.session.userId);
-
   // if not logged in, then alert
   if (!req.session.userId) {
     let templateVars = {
@@ -106,7 +103,6 @@ app.get('/urls/:shortURL', (req, res) => {
 
     // if the urls does not belong to :shortURL, then alert
   } else if (urlDatabase[req.params.shortURL] && urlDatabase[req.params.shortURL].userID !== req.session.userId) {
-    console.log('URL does not belong to you');
     let templateVars = {
       user: users[req.session.userId],
       longURL: null,
@@ -178,11 +174,6 @@ app.get('/login', (req, res) => {
   }
 });
 
-// load login_alert page
-// app.get('/login_alert', (req, res) => {
-//   res.render('login_alert');
-// });
-
 // load registration page
 app.get('/register', (req, res) => {
   if (!req.session.userId) { // not logged in
@@ -205,7 +196,6 @@ app.get('/logout', (req, res) => {
 /////////////////// POST /////////////////////
 // add new URLs to database
 app.post('/urls', (req, res) => {
-  console.log('NewURL being added', req.body.longURL); // Log the POST request body to the console
   urlDatabase[generateRandomString()] = { // update urlDatabase with newly generated short URL, along with longURL and userID
     longURL: req.body.longURL,
     userID: req.session.userId
@@ -218,24 +208,20 @@ app.post('/urls', (req, res) => {
 app.post('/urls/:id', (req, res) => {
   // if not logged in, then alert
   if (!req.session.userId) { // test with curl or postman
-    console.log('EDIT DENIED - not logged in');
     res.status(401).send('UNAUTHORIZED: NOT LOGGED IN');
 
   } else { // user logged in
     // check if url belongs to the user
     if (urlDatabase[req.params.id] && urlDatabase[req.params.id].userID !== req.session.userId) { // test with curl or postman
-      console.log('EDIT DENIED - does not own url');
       res.status(401).send('UNAUTHORIZED: NOT YOUR URL');
 
     } else {
       if (urlDatabase[req.params.id]) {
         // update database with newURL
-        console.log('EDIT SUCCESS');
         urlDatabase[req.params.id].longURL = req.body.newURL;
         res.redirect('/urls');
 
       } else { // test with curl or postman
-        console.log('EDIT DENIED - short url does not exist');
         res.status(405).send('METHOD NOT ALLOWED: SHORT URL NOT IN DATABASE');
       }
 
@@ -247,25 +233,20 @@ app.post('/urls/:id', (req, res) => {
 app.post('/urls/:shortURL/delete', (req, res) => {
   // if not logged in, then alert
   if (!req.session.userId) {
-    console.log('DELETE DENIED - not logged in');
     res.status(401).send('UNAUTHORIZED: NOT LOGGED IN');
 
   } else { // logged in
     
     // check if user owns the URL
     if (urlDatabase[req.params.shortURL] && urlDatabase[req.params.shortURL].userID !== req.session.userId) {
-      console.log('DELETE DENIED - not your url');
       res.status(401).send('UNAUTHORIZED: NOT YOUR URL');
       
     } else {
       if (urlDatabase[req.params.shortURL]) {
-        console.log('DELETE SUCCESS');
         delete urlDatabase[req.params.shortURL];
-        console.log(`ShortURL ${req.params.shortURL} has been deleted`);
         res.redirect('/urls');
 
       } else {
-        console.log('DELETE DENIED - short url does not exist');
         res.status(405).send('METHOD NOT ALLOWED: SHORT URL NOT IN DATABASE');
 
       }
@@ -307,7 +288,6 @@ app.post('/register', (req, res) => {
   const userID = generateRandomString();
 
   if (!req.body.email || !req.body.password) { // check if email or password is empty
-    console.log('EMAIL OR PASSWORD MISSING');
     let templateVars = {
       user: null,
       msg: 'Email or password is empty.',
@@ -317,7 +297,6 @@ app.post('/register', (req, res) => {
     // res.status(400).send('Email or password missing');
 
   } else if (checkEmail(req.body.email, users)) { // check if email already exists in users database
-    console.log('DUPLICATE EMAIL');
     let templateVars = {
       user: null,
       msg: 'Account already exists.',
@@ -327,7 +306,6 @@ app.post('/register', (req, res) => {
     // res.status(400).send('Email already exists');
 
   } else { // add new user to users database
-    console.log('NEW USER ADDED');
     users[userID] = {
       id: userID,
       email: req.body.email,
@@ -335,6 +313,5 @@ app.post('/register', (req, res) => {
     };
     req.session = { userId: userID }; // set session for newly registered user
   }
-  console.log(users);
   res.redirect('/urls');
 });
