@@ -35,7 +35,7 @@ const checkPassword = function(inputPassword, userData) {
   return false;
 };
 
-// retrieve URLs for a given user_id
+// retrieve URLs for a given userId
 const getUrls = function(lookUpId, urlData) {
   let filteredUrls = {};
   for (key in urlData) { // key=shortURL
