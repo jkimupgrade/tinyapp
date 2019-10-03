@@ -46,7 +46,7 @@ app.get('/urls', (req, res) => {
   if (!req.session.userId) { // not logged in (i.e. cookie empty)
     let templateVars = {
       user: null,
-      msg: 'Please login to continue.',
+      msg: 'Please login to view URLs.',
       status: false
     };
     res.render('login', templateVars);
