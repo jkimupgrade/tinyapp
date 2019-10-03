@@ -3,6 +3,7 @@ const app = express();
 const PORT = 8080; // default port 8080
 const bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({extended: true}));
+const bcrypt = require('bcrypt');
 // const cookieParser = require('cookie-parser');
 // app.use(cookieParser());
 const cookieSession = require('cookie-session');
@@ -23,6 +24,7 @@ const { generateRandomString } = require('./helpers');
 const { checkEmail } = require('./helpers');
 const { checkPassword } = require('./helpers');
 const { getUrls } = require('./helpers');
+const { checkUrl } = require('./helpers');
 
 /////////////////// GET //////////////////////
 app.get('/', (req, res) => {
@@ -44,14 +46,16 @@ app.get('/urls', (req, res) => {
   if (!req.session.user_id) { // not logged in (i.e. cookie empty)
     let templateVars = {
       user: null,
-      msg: 'Please login to continue',
+      msg: 'Please login to continue.',
       status: false
     };
     res.render('login', templateVars);
+
   } else {
     let templateVars = { 
       urls: getUrls(req.session.user_id, urlDatabase),
-      user: users[req.session.user_id]
+      user: users[req.session.user_id],
+      status: true
      };
      res.render('urls_index', templateVars);
     }
@@ -78,24 +82,41 @@ app.get('/urls/new', (req, res) => { // GET route to show the form
 
 // load page showing results of newly added longURL and the corresponding shortURL (with the option to edit)
 app.get('/urls/:shortURL', (req, res) => {
-  if (!req.session.user_id) { // if not logged in, then alert
+  console.log('user_id', req.session.user_id);
+
+  // if not logged in, then alert
+  if (!req.session.user_id) {
     let templateVars = {
       user: null,
-      msg: 'Please log in to view the newly added url',
+      msg: 'Please log in to view the requested url.',
       status: false
     };
     res.render('login', templateVars);
-
-  } else if (!getUrls(req.session.user_id, urlDatabase)) { // if the urls does not belong to :id, then alert
+  
+    // if the :shortURL is not in the database, return an appropriate alert message
+  } else if (!checkUrl(req.params.shortURL, urlDatabase)) {
     let templateVars = {
-      user: null,
+      user: users[req.session.user_id],
       longURL: null,
       shortURL: null,
-      msg: 'This URL does not belong to you. Please log in with a different user',
+      msg: 'The requested short URL does not exist in our database. Please try with a different short URL.',
       status: false
     };
     res.render('urls_show', templateVars);
 
+    // if the urls does not belong to :shortURL, then alert
+    } else if (urlDatabase[req.params.shortURL] && urlDatabase[req.params.shortURL].userID !== req.session.user_id) {
+  // } else if (!Object.keys(getUrls(req.session.user_id, urlDatabase)).includes(req.params.shortURL)) {
+    console.log('URL does not belong to you');
+    let templateVars = {
+      user: users[req.session.user_id],
+      longURL: null,
+      shortURL: null,
+      msg: 'The requested short URL does not belong to you. Please try with a different short URL or log in with a different user.',
+      status: false
+    };
+    res.render('urls_show', templateVars);
+  
   } else {
     let templateVars = { 
       shortURL: req.params.shortURL, 
@@ -110,8 +131,37 @@ app.get('/urls/:shortURL', (req, res) => {
 
 // load page corresponding to the shortURL that the user inputs
 app.get('/u/:shortURL', (req, res) => {
-  const longURL = urlDatabase[req.params.shortURL].longURL;
-  res.redirect(longURL);
+  // alert if the shortURL does not exist in the database
+  if (!checkUrl(req.params.shortURL, urlDatabase)) {
+    
+    // if the user is logged in, redirect them to the My URLs page to view the valid short URLs
+    if (req.session.user_id) {
+      let templateVars = { 
+        urls: getUrls(req.session.user_id, urlDatabase),
+        user: users[req.session.user_id],
+        msg: 'The requested short URL does not exist in our database. Please check the list again.',
+        status: false
+       };
+       res.render('urls_index', templateVars);
+    
+    // if the user is NOT logged in, redirect them to the login page
+    } else {
+      let templateVars = {
+        user: users[req.session.user_id],
+        longURL: null,
+        shortURL: null,
+        msg: 'The requested short URL does not exist in our database. Please login to view the list of valid short URLs.',
+        status: false
+      };
+      res.render('login', templateVars);
+    }
+
+  // redirect to corresponding website if the shortURL exists in the database
+  } else {
+    const longURL = urlDatabase[req.params.shortURL].longURL;
+    res.redirect(longURL); // must be http://www...
+
+  }
 });
 
 // load login page
@@ -121,7 +171,7 @@ app.get('/login', (req, res) => {
   if (!req.session.user_id) { // not logged in
     templateVars = {
       user: null,
-      status: true   
+      status: true
     };
     res.render('login', templateVars);
   } else { // logged in
@@ -165,45 +215,71 @@ app.post('/urls', (req, res) => {
   res.redirect(`/urls/${keys[keys.length - 1]}`);
 });
 
-// delete entry on My URLs page (button)
-app.post('/urls/:shortURL/delete', (req, res) => {
-  // if not logged in, then alert
-  if (!req.session.user_id) {
-    console.log('DELETE DENIED');
-    res.redirect('/urls');
-  } else {
-    console.log('DELETE SUCCESS');
-    delete urlDatabase[req.params.shortURL];
-    console.log(`ShortURL ${req.params.shortURL} has been deleted`);
-    res.redirect('/urls');
-  }
-});
-
 // receive newURL from user for specific shortURL (:id)
 app.post('/urls/:id', (req, res) => {
   // if not logged in, then alert
-  if (!req.session.user_id) {
-    console.log('EDIT DENIED')
-    let templateVars = {
-      user: null,
-      msg: 'Please login to edit',
-      status: false
-    };
-    res.render('login', templateVars);
+  if (!req.session.user_id) { // test with curl or postman
+    console.log('EDIT DENIED - not logged in');
+    res.status(401).send('UNAUTHORIZED: NOT LOGGED IN');
 
-  } else {
-    console.log('EDIT SUCCESS'); 
-    urlDatabase[req.params.id] = req.body.newURL; // update database with newURL
-    res.redirect('/urls');
+  } else { // user logged in
+    // check if url belongs to the user
+    if (urlDatabase[req.params.id] && urlDatabase[req.params.id].userID !== req.session.user_id) { // test with curl or postman
+      console.log('EDIT DENIED - does not own url');
+      res.status(401).send('UNAUTHORIZED: NOT YOUR URL');
+
+    } else {
+      if (urlDatabase[req.params.id]) {
+        // update database with newURL
+        console.log('EDIT SUCCESS');
+        urlDatabase[req.params.id].longURL = req.body.newURL;
+        res.redirect('/urls');
+
+      } else { // test with curl or postman
+        console.log('EDIT DENIED - short url does not exist')
+        res.status(405).send('METHOD NOT ALLOWED: SHORT URL NOT IN DATABASE');
+      }
+
+    }
   }
 });
+
+  // delete entry on My URLs page (button)
+  app.post('/urls/:shortURL/delete', (req, res) => {
+    // if not logged in, then alert
+    if (!req.session.user_id) {
+      console.log('DELETE DENIED - not logged in');
+      res.status(401).send('UNAUTHORIZED: NOT LOGGED IN');
+
+    } else { // logged in
+      
+      // check if user owns the URL
+      if (urlDatabase[req.params.shortURL] && urlDatabase[req.params.shortURL].userID !== req.session.user_id) {
+        console.log('DELETE DENIED - not your url');
+        res.status(401).send('UNAUTHORIZED: NOT YOUR URL');
+        
+      } else {
+        if (urlDatabase[req.params.shortURL]) {
+          console.log('DELETE SUCCESS');
+          delete urlDatabase[req.params.shortURL];
+          console.log(`ShortURL ${req.params.shortURL} has been deleted`);
+          res.redirect('/urls');
+
+        } else {
+          console.log('DELETE DENIED - short url does not exist');
+          res.status(405).send('METHOD NOT ALLOWED: SHORT URL NOT IN DATABASE');
+
+        }
+      }
+    }
+  });
 
 // check login credentials
 app.post('/login', (req, res) => {
   if (!checkEmail(req.body.email, users)) { // if email cannot be found, return 403
     let templateVars = {
       user: null,
-      msg: 'Invalid email',
+      msg: 'Invalid email.',
       status: false
     }
     res.status(403).render('login', templateVars);
@@ -213,7 +289,7 @@ app.post('/login', (req, res) => {
     if (!checkPassword(req.body.password, users)) {
       let templateVars = {
         user: null,
-        msg: 'Invalid password',
+        msg: 'Invalid password.',
         status: false
       }
       res.status(403).render('login', templateVars);
@@ -235,20 +311,20 @@ app.post('/register', (req, res) => {
     console.log('EMAIL OR PASSWORD MISSING');
     let templateVars = {
       user: null,
-      msg: 'Email or password is EMPTY',
+      msg: 'Email or password is empty.',
       status: false
     };
     res.status(400).render('register', templateVars);
     // res.status(400).send('Email or password missing');
 
-  } else if (checkEmail(req.body.email)) { // check if email already exists in users database
+  } else if (checkEmail(req.body.email, users)) { // check if email already exists in users database
     console.log('DUPLICATE EMAIL');
     let templateVars = {
       user: null,
-      msg: 'Duplicate email',
+      msg: 'Account already exists.',
       status: false
     };
-    res.status(400).render('register', templateVars)
+    res.status(400).render('register', templateVars);
     // res.status(400).send('Email already exists');
 
   } else { // add new user to users database
@@ -258,9 +334,8 @@ app.post('/register', (req, res) => {
       email: req.body.email,
       password: bcrypt.hashSync(req.body.password, 10) // hash password before storage
     };
+    req.session = { user_id: userID }; // set session for newly registered user
   };
-  console.log(users); // view users object after
-
-  res.cookie('user_id', userID);
+  console.log(users);
   res.redirect('/urls');
 });

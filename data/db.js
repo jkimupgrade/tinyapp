@@ -3,7 +3,8 @@ const bcrypt = require('bcrypt');
 // initial url database
 const urlDatabase = {
   'b2xVn2': { longURL:'http://www.lighthouselabs.ca', userID: 'test01' },
-  '9sm5xK': { longURL: 'http://www.google.com', userID: 'test01'}
+  '9sm5xK': { longURL: 'http://www.google.com', userID: 'test01'},
+  'elb0o6': { longURL: 'http://www.reddit.com', userID: 'test02'}
 };
 
 // initialize users object

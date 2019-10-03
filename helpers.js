@@ -35,7 +35,7 @@ const checkPassword = function(inputPassword, userData) {
   return false;
 };
 
-// retrieve URLs where the userID is equal to the id of the currently logged in user
+// retrieve URLs for a given user_id
 const getUrls = function(lookUpId, urlData) {
   let filteredUrls = {};
   for (key in urlData) { // key=shortURL
@@ -43,10 +43,22 @@ const getUrls = function(lookUpId, urlData) {
       filteredUrls[key] = urlData[key].longURL;
     }
   };
+  // check if the user has any URLs
   if (Object.keys(filteredUrls).length === 0) {
-    return false;
+    return undefined;
+  } else {
+    return filteredUrls;
   }
-  return filteredUrls;
+};
+
+// check if shortURL exists in database
+const checkUrl = function(shortURL, urlData) {
+  for (key in urlData) {
+    if (key === shortURL) {
+      return true;
+    }
+  };
+  return false;
 };
 
 module.exports = {
@@ -54,5 +66,6 @@ module.exports = {
   getUserByEmail,
   checkEmail,
   checkPassword,
-  getUrls
+  getUrls,
+  checkUrl
 };
