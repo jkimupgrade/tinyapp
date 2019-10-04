@@ -1,17 +1,21 @@
 const express = require('express');
+const methodOverride = require('method-override');
 const app = express();
 const PORT = 8080; // default port 8080
 const bodyParser = require('body-parser');
-app.use(bodyParser.urlencoded({extended: true}));
 const bcrypt = require('bcrypt');
 const cookieSession = require('cookie-session');
+app.use(bodyParser.urlencoded({extended: true}));
 app.use(cookieSession({
   name: 'session',
   keys: ['key1', 'key2'],
   signed: false
 }));
+// override with POST having ?_method=DELETE
+app.use(methodOverride('_method'));
 
-app.set('view engine', 'ejs'); // templating engine
+ // templating engine
+app.set('view engine', 'ejs');
 
 // import data
 const { urlDatabase } = require('./data/db');
@@ -45,8 +49,7 @@ app.get('/urls', (req, res) => {
   if (!req.session.userId) { // not logged in (i.e. cookie empty)
     let templateVars = {
       user: null,
-      msg: 'Please login to view URLs.',
-      status: false
+      msg: 'Please login to view URLs.'
     };
     res.render('login', templateVars);
 
@@ -54,7 +57,7 @@ app.get('/urls', (req, res) => {
     let templateVars = {
       urls: getUrls(req.session.userId, urlDatabase),
       user: users[req.session.userId],
-      status: true
+      msg: false
     };
     res.render('urls_index', templateVars);
   }
@@ -65,14 +68,14 @@ app.get('/urls/new', (req, res) => { // GET route to show the form
   if (!req.session.userId) { // not logged in
     let templateVars = {
       user: null,
-      msg: 'Please login to create a shortURL',
-      status: false
+      msg: 'Please login to create a shortURL'
     };
     res.render('login', templateVars); //
 
   } else { // logged in
     let templateVars = {
-      user: users[req.session.userId]
+      user: users[req.session.userId],
+      msg: false
     };
     res.render('urls_new', templateVars);
   }
@@ -84,8 +87,7 @@ app.get('/urls/:shortURL', (req, res) => {
   if (!req.session.userId) {
     let templateVars = {
       user: null,
-      msg: 'Please log in to view the requested url.',
-      status: false
+      msg: 'Please log in to view the requested url.'
     };
     res.render('login', templateVars);
   
@@ -95,8 +97,7 @@ app.get('/urls/:shortURL', (req, res) => {
       user: users[req.session.userId],
       longURL: null,
       shortURL: null,
-      msg: 'The requested short URL does not exist in our database. Please try with a different short URL.',
-      status: false
+      msg: 'The requested short URL does not exist in our database. Please try with a different short URL.'
     };
     res.render('urls_show', templateVars);
 
@@ -106,8 +107,7 @@ app.get('/urls/:shortURL', (req, res) => {
       user: users[req.session.userId],
       longURL: null,
       shortURL: null,
-      msg: 'The requested short URL does not belong to you. Please try with a different short URL or log in with a different user.',
-      status: false
+      msg: 'The requested short URL does not belong to you. Please try with a different short URL or log in with a different user.'
     };
     res.render('urls_show', templateVars);
   
@@ -116,7 +116,7 @@ app.get('/urls/:shortURL', (req, res) => {
       shortURL: req.params.shortURL,
       longURL: urlDatabase[req.params.shortURL].longURL,
       user: users[req.session.userId],
-      status: true
+      msg: false
     };
     res.render('urls_show', templateVars);
   }
@@ -133,8 +133,7 @@ app.get('/u/:shortURL', (req, res) => {
       let templateVars = {
         urls: getUrls(req.session.userId, urlDatabase),
         user: users[req.session.userId],
-        msg: 'The requested short URL does not exist in our database. Please check the list again.',
-        status: false
+        msg: 'The requested short URL does not exist in our database. Please check the list again.'
       };
       res.render('urls_index', templateVars);
     
@@ -144,8 +143,7 @@ app.get('/u/:shortURL', (req, res) => {
         user: users[req.session.userId],
         longURL: null,
         shortURL: null,
-        msg: 'The requested short URL does not exist in our database. Please login to view the list of valid short URLs.',
-        status: false
+        msg: 'The requested short URL does not exist in our database. Please login to view the list of valid short URLs.'
       };
       res.render('login', templateVars);
     }
@@ -165,7 +163,7 @@ app.get('/login', (req, res) => {
   if (!req.session.userId) { // not logged in
     let templateVars = {
       user: null,
-      status: true
+      msg: false
     };
     res.render('login', templateVars);
   } else { // logged in
@@ -178,7 +176,7 @@ app.get('/register', (req, res) => {
   if (!req.session.userId) { // not logged in
     let templateVars = {
       user: null,
-      status: true
+      msg: false
     };
     res.render('register', templateVars);
   } else { // logged in
@@ -195,7 +193,7 @@ app.get('/logout', (req, res) => {
 /////////////////// POST /////////////////////
 // add new URLs to database
 app.post('/urls', (req, res) => {
-  urlDatabase[generateRandomString()] = { // update urlDatabase with newly generated short URL, along with longURL and userID
+  urlDatabase[generateRandomString()] = {
     longURL: req.body.longURL,
     userID: req.session.userId
   };
@@ -203,13 +201,13 @@ app.post('/urls', (req, res) => {
   res.redirect(`/urls/${keys[keys.length - 1]}`);
 });
 
-// receive newURL from user for specific shortURL (:id)
-app.post('/urls/:id', (req, res) => {
+// edit the longURL of an existing shortURL
+app.put('/urls/:id', (req, res) => {
   // if not logged in, then alert
   if (!req.session.userId) { // test with curl or postman
     res.status(401).send('UNAUTHORIZED: NOT LOGGED IN');
-
-  } else { // user logged in
+  // user logged in
+  } else {
     // check if url belongs to the user
     if (urlDatabase[req.params.id] && urlDatabase[req.params.id].userID !== req.session.userId) { // test with curl or postman
       res.status(401).send('UNAUTHORIZED: NOT YOUR URL');
@@ -229,7 +227,7 @@ app.post('/urls/:id', (req, res) => {
 });
 
 // delete entry on My URLs page (button)
-app.post('/urls/:shortURL/delete', (req, res) => {
+app.delete('/urls/:shortURL', (req, res) => {
   // if not logged in, then alert
   if (!req.session.userId) {
     res.status(401).send('UNAUTHORIZED: NOT LOGGED IN');
@@ -258,8 +256,7 @@ app.post('/login', (req, res) => {
   if (!checkEmail(req.body.email, users)) { // if email cannot be found, return 403
     let templateVars = {
       user: null,
-      msg: 'Invalid email.',
-      status: false
+      msg: 'Invalid email.'
     };
     res.status(403).render('login', templateVars);
     // res.status(403).send('Invalid email');
@@ -268,8 +265,7 @@ app.post('/login', (req, res) => {
     if (!checkPassword(req.body.password, users)) {
       let templateVars = {
         user: null,
-        msg: 'Invalid password.',
-        status: false
+        msg: 'Invalid password.'
       };
       res.status(403).render('login', templateVars);
       // res.status(403).send('Invalid password');
@@ -289,8 +285,7 @@ app.post('/register', (req, res) => {
   if (!req.body.email || !req.body.password) { // check if email or password is empty
     let templateVars = {
       user: null,
-      msg: 'Email or password is empty.',
-      status: false
+      msg: 'Email or password is empty.'
     };
     res.status(400).render('register', templateVars);
     // res.status(400).send('Email or password missing');
@@ -298,8 +293,7 @@ app.post('/register', (req, res) => {
   } else if (checkEmail(req.body.email, users)) { // check if email already exists in users database
     let templateVars = {
       user: null,
-      msg: 'Account already exists.',
-      status: false
+      msg: 'Account already exists.'
     };
     res.status(400).render('register', templateVars);
     // res.status(400).send('Email already exists');

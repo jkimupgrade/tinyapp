@@ -18,9 +18,11 @@
             Logged in as: <%= user.email %>&nbsp;&nbsp;&nbsp;
             <button type="submit" class="btn btn-outline-dark">Logout</button>
           </form>
-          <!-- <a class="nav-item nav-link">Logged in as: <%= user.email %></a> -->
         <% } %>
       </div>
     </div>
   </nav>
+  <% if (msg) { %>
+  <div class='alert alert-danger' role='alert'><%= msg %></div>
+  <% } %>
 </header>
