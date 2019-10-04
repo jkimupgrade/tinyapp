@@ -7,7 +7,8 @@ const bcrypt = require('bcrypt');
 const cookieSession = require('cookie-session');
 app.use(cookieSession({
   name: 'session',
-  keys: ['key1', 'key2']
+  keys: ['key1', 'key2'],
+  signed: false
 }));
 
 app.set('view engine', 'ejs'); // templating engine
