@@ -45,39 +45,26 @@ app.get('/hello', (req, res) => {
 
 // load 'My URLs' page
 app.get('/urls', (req, res) => {
-  // 1. check if user is logged in 2. only display urls relevant to the user
-  if (!req.session.userId) { // not logged in (i.e. cookie empty)
-    let templateVars = {
-      user: null,
-      msg: 'Please login to view URLs.'
-    };
-    res.render('login', templateVars);
+  // not logged in (i.e. cookie empty)
+  if (!req.session.userId) {
+    res.render('login', { user: null, msg: 'Please login to view URLs.' });
 
   } else {
-    let templateVars = {
-      urls: getUrls(req.session.userId, urlDatabase),
-      user: users[req.session.userId],
-      msg: false
-    };
-    res.render('urls_index', templateVars);
+    res.render('urls_index', { urls: getUrls(req.session.userId, urlDatabase), user: users[req.session.userId], msg: false });
+
   }
 });
 
 // load 'Create New URL' page
-app.get('/urls/new', (req, res) => { // GET route to show the form
-  if (!req.session.userId) { // not logged in
-    let templateVars = {
-      user: null,
-      msg: 'Please login to create a shortURL'
-    };
-    res.render('login', templateVars); //
+app.get('/urls/new', (req, res) => {
+  // not logged in
+  if (!req.session.userId) {
+    res.render('login', { user: null, msg: 'Please login to create a shortURL' });
 
-  } else { // logged in
-    let templateVars = {
-      user: users[req.session.userId],
-      msg: false
-    };
-    res.render('urls_new', templateVars);
+  // logged in
+  } else {
+    res.render('urls_new', { user: users[req.session.userId], msg: false });
+
   }
 });
 
@@ -85,37 +72,24 @@ app.get('/urls/new', (req, res) => { // GET route to show the form
 app.get('/urls/:shortURL', (req, res) => {
   // if not logged in, then alert
   if (!req.session.userId) {
-    let templateVars = {
-      user: null,
-      msg: 'Please log in to view the requested url.'
-    };
-    res.render('login', templateVars);
+    res.render('login', { user: null, dateCreated: null, msg: 'Please log in to view the requested url.' });
   
     // if the :shortURL is not in the database, return an appropriate alert message
   } else if (!checkUrl(req.params.shortURL, urlDatabase)) {
-    let templateVars = {
-      user: users[req.session.userId],
-      longURL: null,
-      shortURL: null,
-      msg: 'The requested short URL does not exist in our database. Please try with a different short URL.'
-    };
-    res.render('urls_show', templateVars);
+    res.render('urls_show', { user: users[req.session.userId], longURL: null, shortURL: null, dateCreated: null, 
+      msg: 'The requested short URL does not exist in our database. Please try with a different short URL.' });
 
     // if the urls does not belong to :shortURL, then alert
   } else if (urlDatabase[req.params.shortURL] && urlDatabase[req.params.shortURL].userID !== req.session.userId) {
-    let templateVars = {
-      user: users[req.session.userId],
-      longURL: null,
-      shortURL: null,
-      msg: 'The requested short URL does not belong to you. Please try with a different short URL or log in with a different user.'
-    };
-    res.render('urls_show', templateVars);
+    res.render('urls_show', { user: users[req.session.userId], longURL: null, shortURL: null, analytics: null, 
+      msg: 'The requested short URL does not belong to you. Please try with a different short URL or log in with a different user.' });
   
   } else {
     let templateVars = {
       shortURL: req.params.shortURL,
       longURL: urlDatabase[req.params.shortURL].longURL,
       user: users[req.session.userId],
+      analytics: urlDatabase[req.params.shortURL].analytics,
       msg: false
     };
     res.render('urls_show', templateVars);
@@ -123,50 +97,50 @@ app.get('/urls/:shortURL', (req, res) => {
 
 });
 
-// load page corresponding to the shortURL that the user inputs
+// load page based on shortURL
 app.get('/u/:shortURL', (req, res) => {
   // alert if the shortURL does not exist in the database
   if (!checkUrl(req.params.shortURL, urlDatabase)) {
     
     // if the user is logged in, redirect them to the My URLs page to view the valid short URLs
     if (req.session.userId) {
-      let templateVars = {
-        urls: getUrls(req.session.userId, urlDatabase),
-        user: users[req.session.userId],
-        msg: 'The requested short URL does not exist in our database. Please check the list again.'
-      };
-      res.render('urls_index', templateVars);
+      res.render('urls_index', { urls: getUrls(req.session.userId, urlDatabase), user: users[req.session.userId], 
+        msg: 'The requested short URL does not exist in our database. Please check the list again.' });
     
     // if the user is NOT logged in, redirect them to the login page
     } else {
-      let templateVars = {
-        user: users[req.session.userId],
-        longURL: null,
-        shortURL: null,
-        msg: 'The requested short URL does not exist in our database. Please login to view the list of valid short URLs.'
-      };
-      res.render('login', templateVars);
+      res.render('login', { user: users[req.session.userId], longURL: null, shortURL: null,
+        msg: 'The requested short URL does not exist in our database. Please login to view the list of valid short URLs.' });
     }
 
   // redirect to corresponding website if the shortURL exists in the database
   } else {
+    //////////// Unique Visitors ////////////
+    // generate a trackingID for the visitor
+    let trackingID = generateRandomString();
+    // check if trackingID is in the urlDatabase
+    if (urlDatabase[req.params.shortURL].visitors.length !== 0 && !urlDatabase[req.params.shortURL].visitors.includes(trackingID)) {
+      // NEW VISITOR! add trackingID to session cookie
+      res.session = { trackingID: generateRandomString() };
+      urlDatabase[req.params.shortURL].analytics.numUniqueVisitor += 1;
+    } 
+    // increment visit counter (even duplicate visitors count!)
+    urlDatabase[req.params.shortURL].analytics.numVisitor += 1;
+    
     const longURL = urlDatabase[req.params.shortURL].longURL;
-    res.redirect(longURL); // must be http://www...
+    res.redirect(longURL); // must be http://www...to work
 
   }
 });
 
 // load login page
 app.get('/login', (req, res) => {
-  // only show login page if they're not logged in
-  // if they're logged in --> redirect to /urls page
-  if (!req.session.userId) { // not logged in
-    let templateVars = {
-      user: null,
-      msg: false
-    };
-    res.render('login', templateVars);
-  } else { // logged in
+  // not logged in
+  if (!req.session.userId) {
+    res.render('login', { user: null, msg: false });
+  
+  // logged in
+  } else {
     res.redirect('/urls');
   }
 });
@@ -174,28 +148,30 @@ app.get('/login', (req, res) => {
 // load registration page
 app.get('/register', (req, res) => {
   if (!req.session.userId) { // not logged in
-    let templateVars = {
-      user: null,
-      msg: false
-    };
-    res.render('register', templateVars);
-  } else { // logged in
+    res.render('register', { user: null, msg: false });
+
+  // logged in
+  } else {
     res.redirect('/urls');
   }
 });
 
 // loading the logout page will clear cookies and redirect to 'My URLs' page
 app.get('/logout', (req, res) => {
-  req.session = null; // destroy session
+  // destroy session
+  req.session = null;
+  // redirect to login page
   res.redirect('/login');
 });
 
 /////////////////// POST /////////////////////
 // add new URLs to database
 app.post('/urls', (req, res) => {
+  // create timestamp along with new shortURL (initialize visitor counts too)
   urlDatabase[generateRandomString()] = {
     longURL: req.body.longURL,
-    userID: req.session.userId
+    userID: req.session.userId,
+    analytics: { created: new Date(), numVisitor: 0, numUniqueVisitor: 0 }
   };
   let keys = Object.keys(urlDatabase);
   res.redirect(`/urls/${keys[keys.length - 1]}`);
@@ -204,21 +180,22 @@ app.post('/urls', (req, res) => {
 // edit the longURL of an existing shortURL
 app.put('/urls/:id', (req, res) => {
   // if not logged in, then alert
-  if (!req.session.userId) { // test with curl or postman
+  if (!req.session.userId) {
     res.status(401).send('UNAUTHORIZED: NOT LOGGED IN');
+
   // user logged in
   } else {
     // check if url belongs to the user
-    if (urlDatabase[req.params.id] && urlDatabase[req.params.id].userID !== req.session.userId) { // test with curl or postman
+    if (urlDatabase[req.params.id] && urlDatabase[req.params.id].userID !== req.session.userId) {
       res.status(401).send('UNAUTHORIZED: NOT YOUR URL');
 
     } else {
+      // update database with newURL
       if (urlDatabase[req.params.id]) {
-        // update database with newURL
         urlDatabase[req.params.id].longURL = req.body.newURL;
         res.redirect('/urls');
 
-      } else { // test with curl or postman
+      } else {
         res.status(405).send('METHOD NOT ALLOWED: SHORT URL NOT IN DATABASE');
       }
 
@@ -232,7 +209,8 @@ app.delete('/urls/:shortURL', (req, res) => {
   if (!req.session.userId) {
     res.status(401).send('UNAUTHORIZED: NOT LOGGED IN');
 
-  } else { // logged in
+  // logged in
+  } else {
     
     // check if user owns the URL
     if (urlDatabase[req.params.shortURL] && urlDatabase[req.params.shortURL].userID !== req.session.userId) {
@@ -253,27 +231,21 @@ app.delete('/urls/:shortURL', (req, res) => {
 
 // check login credentials
 app.post('/login', (req, res) => {
-  if (!checkEmail(req.body.email, users)) { // if email cannot be found, return 403
-    let templateVars = {
-      user: null,
-      msg: 'Invalid email.'
-    };
-    res.status(403).render('login', templateVars);
+  // if email cannot be found, return 403
+  if (!checkEmail(req.body.email, users)) {
+    res.status(403).render('login', { user: null, msg: 'Invalid email.' });
     // res.status(403).send('Invalid email');
 
-  } else { // if password is invalid, return 403
+  // if password is invalid, return 403
+  } else {
     if (!checkPassword(req.body.password, users)) {
-      let templateVars = {
-        user: null,
-        msg: 'Invalid password.'
-      };
-      res.status(403).render('login', templateVars);
+      res.status(403).render('login', { user: null, msg: 'Invalid password.' });
       // res.status(403).send('Invalid password');
 
     } else {
       req.session.userId = getUserByEmail(req.body.email, users);
 
-    }
+    }    
   }
   res.redirect('/urls');
 });
@@ -282,29 +254,27 @@ app.post('/login', (req, res) => {
 app.post('/register', (req, res) => {
   const userID = generateRandomString();
 
-  if (!req.body.email || !req.body.password) { // check if email or password is empty
-    let templateVars = {
-      user: null,
-      msg: 'Email or password is empty.'
-    };
-    res.status(400).render('register', templateVars);
+  // check if email or password is empty
+  if (!req.body.email || !req.body.password) {
+    res.status(400).render('register', { user: null, msg: 'Email or password is empty.' });
     // res.status(400).send('Email or password missing');
 
-  } else if (checkEmail(req.body.email, users)) { // check if email already exists in users database
-    let templateVars = {
-      user: null,
-      msg: 'Account already exists.'
-    };
-    res.status(400).render('register', templateVars);
+  // check if email already exists in users database
+  } else if (checkEmail(req.body.email, users)) {
+    res.status(400).render('register', { user: null, msg: 'Account already exists.' });
     // res.status(400).send('Email already exists');
-
-  } else { // add new user to users database
+  
+  // add new user to users database
+  } else {
+    // hash password before storage
     users[userID] = {
       id: userID,
       email: req.body.email,
-      password: bcrypt.hashSync(req.body.password, 10) // hash password before storage
+      password: bcrypt.hashSync(req.body.password, 10) 
     };
-    req.session = { userId: userID }; // set session for newly registered user
+    // set session cookie for newly registered user
+    req.session = { userId: userID };
   }
+  // redirect to My URLs page after successful registration
   res.redirect('/urls');
 });
