@@ -17,7 +17,7 @@ TinyApp is a full stack web application built with Node and Express that allows 
 !["Create URL page"](https://github.com/jimhjkim/tinyapp/blob/master/docs/urlsNew-page.png?raw=true)
 
 #### Show New Short URL (option to edit)
-!["View New Short URL"](https://github.com/jimhjkim/tinyapp/blob/master/docs/urlsShow-page.png?raw=true)
+!["View New Short URL"](docs/urlsShow-page-analytics.png)
 
 #### Error Handling (Visible)
 ##### Registraton error - empty email or password
