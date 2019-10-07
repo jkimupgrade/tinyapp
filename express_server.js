@@ -93,6 +93,7 @@ app.get('/urls/:shortURL', (req, res) => {
       longURL: urlDatabase[req.params.shortURL].longURL,
       user: users[req.session.userId],
       analytics: urlDatabase[req.params.shortURL].analytics,
+      visitors: urlDatabase[req.params.shortURL].visitors,
       msg: false
     };
     res.render('urls_show', templateVars);
@@ -118,20 +119,26 @@ app.get('/u/:shortURL', (req, res) => {
 
   // redirect to corresponding website if the shortURL exists in the database
   } else {
-    console.log('incoming cookie...', req.cookies.trackingId);
-    
-    const trackingId = generateRandomString();
-    // set cookie if there is not incoming cookie
-    if (!req.cookies.trackingId) {
-      res.cookie('trackingId', trackingId);
-    }
+    // generate visitorId and save
+    const visitorId = generateRandomString();
+    const timestamp = new Date();
+    urlDatabase[req.params.shortURL].visitors.push({ id: visitorId, timestamp: timestamp });
+    console.log('visitors...', urlDatabase[req.params.shortURL].visitors);
 
-    // check if incoming cookie exists and it is not in the visitors array
-    if (!urlDatabase[req.params.shortURL].visitors.includes(req.cookies.trackingId)) {
+    
+    const cookieId = generateRandomString();
+    // set cookie if there is not incoming cookie
+    if (!req.cookies.cookieId) {
+      res.cookie('cookieId', cookieId);
+    }
+    
+    console.log('incoming cookie...', req.cookies.cookieId);
+    // check if incoming cookie exists in the cookies array
+    if (!urlDatabase[req.params.shortURL].trackers.includes(req.cookies.cookieId)) {
       // set cookie for NEW VISITOR
-      res.cookie('trackingId', trackingId);
+      res.cookie('cookieId', cookieId);
       // add cookie to visitors array
-      urlDatabase[req.params.shortURL].visitors.push(trackingId);
+      urlDatabase[req.params.shortURL].trackers.push(cookieId);
       // increase unique visitor count
       urlDatabase[req.params.shortURL].analytics.numUniqueVisitor += 1;
 
@@ -142,7 +149,7 @@ app.get('/u/:shortURL', (req, res) => {
     const longURL = urlDatabase[req.params.shortURL].longURL;
     res.redirect(longURL); // must be http://www...to work
 
-    console.log('visitors...', urlDatabase[req.params.shortURL].visitors);
+    console.log('trackers...', urlDatabase[req.params.shortURL].trackers);
     console.log('-----------------');
   }
 });
@@ -186,7 +193,8 @@ app.post('/urls', (req, res) => {
     longURL: req.body.longURL,
     userID: req.session.userId,
     analytics: { created: new Date(), numVisitor: 0, numUniqueVisitor: 0 },
-    visitors: []
+    visitors: [],
+    trackers: []
   };
   let keys = Object.keys(urlDatabase);
   res.redirect(`/urls/${keys[keys.length - 1]}`);

@@ -7,16 +7,19 @@ const urlDatabase = {
     userID: 'test01' , 
     analytics: { created: new Date(), numVisitor: 0, numUniqueVisitor: 0 } },
     visitors: [],
+    trackers: [],
   '9sm5xK': {
     longURL: 'http://www.google.com',
     userID: 'test01',
     analytics: { created: new Date(), numVisitor: 0, numUniqueVisitor: 0 } },
     visitors: [],
+    trackers: [],
   'elb0o6': {
     longURL: 'http://www.reddit.com',
     userID: 'test02',
     analytics: { created: new Date(), numVisitor: 0, numUniqueVisitor: 0} },
-    visitors: []
+    visitors: [],
+    trackers: []
 };
 
 // initialize users object
