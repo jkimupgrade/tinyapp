@@ -4,8 +4,11 @@ const app = express();
 const PORT = 8080; // default port 8080
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
+const cookieParser = require('cookie-parser');
 const cookieSession = require('cookie-session');
+
 app.use(bodyParser.urlencoded({extended: true}));
+app.use(cookieParser());
 app.use(cookieSession({
   name: 'session',
   keys: ['key1', 'key2'],
@@ -76,12 +79,12 @@ app.get('/urls/:shortURL', (req, res) => {
   
     // if the :shortURL is not in the database, return an appropriate alert message
   } else if (!checkUrl(req.params.shortURL, urlDatabase)) {
-    res.render('urls_show', { user: users[req.session.userId], longURL: null, shortURL: null, dateCreated: null, 
+    res.render('urls_show', { user: users[req.session.userId], longURL: null, shortURL: null, analytics: { created: null, numVisitor: null, numUniqueVisitor: null }, 
       msg: 'The requested short URL does not exist in our database. Please try with a different short URL.' });
 
     // if the urls does not belong to :shortURL, then alert
   } else if (urlDatabase[req.params.shortURL] && urlDatabase[req.params.shortURL].userID !== req.session.userId) {
-    res.render('urls_show', { user: users[req.session.userId], longURL: null, shortURL: null, analytics: null, 
+    res.render('urls_show', { user: users[req.session.userId], longURL: null, shortURL: null, analytics: { created: null, numVisitor: null, numUniqueVisitor: null }, 
       msg: 'The requested short URL does not belong to you. Please try with a different short URL or log in with a different user.' });
   
   } else {
@@ -115,21 +118,32 @@ app.get('/u/:shortURL', (req, res) => {
 
   // redirect to corresponding website if the shortURL exists in the database
   } else {
-    //////////// Unique Visitors ////////////
-    // generate a trackingID for the visitor
-    let trackingID = generateRandomString();
-    // check if trackingID is in the urlDatabase
-    if (urlDatabase[req.params.shortURL].visitors.length !== 0 && !urlDatabase[req.params.shortURL].visitors.includes(trackingID)) {
-      // NEW VISITOR! add trackingID to session cookie
-      res.session = { trackingID: generateRandomString() };
-      urlDatabase[req.params.shortURL].analytics.numUniqueVisitor += 1;
-    } 
-    // increment visit counter (even duplicate visitors count!)
-    urlDatabase[req.params.shortURL].analytics.numVisitor += 1;
+    console.log('incoming cookie...', req.cookies.trackingId);
     
+    const trackingId = generateRandomString();
+    // set cookie if there is not incoming cookie
+    if (!req.cookies.trackingId) {
+      res.cookie('trackingId', trackingId);
+    }
+
+    // check if incoming cookie exists and it is not in the visitors array
+    if (!urlDatabase[req.params.shortURL].visitors.includes(req.cookies.trackingId)) {
+      // set cookie for NEW VISITOR
+      res.cookie('trackingId', trackingId);
+      // add cookie to visitors array
+      urlDatabase[req.params.shortURL].visitors.push(trackingId);
+      // increase unique visitor count
+      urlDatabase[req.params.shortURL].analytics.numUniqueVisitor += 1;
+
+    }
+    // increment visit counter
+    urlDatabase[req.params.shortURL].analytics.numVisitor += 1;
+    // redirect to corresponding long URL 
     const longURL = urlDatabase[req.params.shortURL].longURL;
     res.redirect(longURL); // must be http://www...to work
 
+    console.log('visitors...', urlDatabase[req.params.shortURL].visitors);
+    console.log('-----------------');
   }
 });
 
@@ -171,7 +185,8 @@ app.post('/urls', (req, res) => {
   urlDatabase[generateRandomString()] = {
     longURL: req.body.longURL,
     userID: req.session.userId,
-    analytics: { created: new Date(), numVisitor: 0, numUniqueVisitor: 0 }
+    analytics: { created: new Date(), numVisitor: 0, numUniqueVisitor: 0 },
+    visitors: []
   };
   let keys = Object.keys(urlDatabase);
   res.redirect(`/urls/${keys[keys.length - 1]}`);
