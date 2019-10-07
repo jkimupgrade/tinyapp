@@ -123,8 +123,6 @@ app.get('/u/:shortURL', (req, res) => {
     const visitorId = generateRandomString();
     const timestamp = new Date();
     urlDatabase[req.params.shortURL].visitors.push({ id: visitorId, timestamp: timestamp });
-    console.log('visitors...', urlDatabase[req.params.shortURL].visitors);
-
     
     const cookieId = generateRandomString();
     // set cookie if there is not incoming cookie
@@ -132,7 +130,6 @@ app.get('/u/:shortURL', (req, res) => {
       res.cookie('cookieId', cookieId);
     }
     
-    console.log('incoming cookie...', req.cookies.cookieId);
     // check if incoming cookie exists in the cookies array
     if (!urlDatabase[req.params.shortURL].trackers.includes(req.cookies.cookieId)) {
       // set cookie for NEW VISITOR
@@ -148,9 +145,6 @@ app.get('/u/:shortURL', (req, res) => {
     // redirect to corresponding long URL 
     const longURL = urlDatabase[req.params.shortURL].longURL;
     res.redirect(longURL); // must be http://www...to work
-
-    console.log('trackers...', urlDatabase[req.params.shortURL].trackers);
-    console.log('-----------------');
   }
 });
 

@@ -40,23 +40,24 @@
         <br>
         <div class='card-body'>
           <h5 class='card-title'>Visitor log</h5>
-          <table class='table'>
-            <thead>
-              <tr>
-                <th scope='col'>ID</th>
-                <th scope='col'>Timestamp</th>
-              </tr>
-            </thead>
-            <tbody>
-            <% visitors.forEach(visitor => { %>
-              <tr>
-                <td><%= visitor.id %></td>
-                <td><%= visitor.timestamp %></td>
-              </tr>
-            <% }) %>
-            </tbody>
-          </table>
+            <table class='table'>
+              <thead>
+                <tr>
+                  <th scope='col'>ID</th>
+                  <th scope='col'>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody>
+              <% visitors.forEach(visitor => { %>
+                <tr>
+                  <td><%= visitor.id %></td>
+                  <td><%= visitor.timestamp %></td>
+                </tr>
+              <% }) %>
+              </tbody>
+            </table>
         </div>
+      </div>
     <div class='card-footer text-muted'></div>
   <!-- Bootstrap JS -->
   <script src='https://code.jquery.com/jquery-3.3.1.slim.min.js' integrity='sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo' crossorigin='anonymous'></script>
